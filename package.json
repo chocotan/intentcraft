@@ -1,0 +1,20 @@
+{
+  "name": "intentcraft",
+  "version": "0.1.0",
+  "private": true,
+  "description": "User-invoked skills for evidence-led product discovery, requirements, planning, and independent document review.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chocotan/intentcraft.git"
+  },
+  "homepage": "https://github.com/chocotan/intentcraft#readme",
+  "keywords": ["pi-package", "agent-skills", "requirements", "planning"],
+  "files": ["skills/", "tests/", "docs/", "README.md", "LICENSE", "ATTRIBUTION.md"],
+  "scripts": {
+    "test": "node tests/check.mjs"
+  },
+  "pi": {
+    "skills": ["./skills/intentcraft", "./skills/intentcraft-review"]
+  }
+}

@@ -1,0 +1,10 @@
+# Reference checkouts and local agent state are not part of Intentcraft.
+/example/
+/.pi/
+/.agents/
+node_modules/
+*.tgz
+.env
+.env.*
+!.env.example
+.DS_Store
