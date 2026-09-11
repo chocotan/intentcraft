@@ -2,7 +2,7 @@
   "name": "intentcraft",
   "version": "0.1.0",
   "private": true,
-  "description": "User-invoked skills for evidence-led product discovery, requirements, planning, and independent document review.",
+  "description": "User-invoked skills for evidence research, product preparation, independent review, and tested implementation.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -19,6 +19,6 @@
   },
   "pi": {
     "extensions": ["./extensions"],
-    "skills": ["./skills/intentcraft", "./skills/intentcraft-review"]
+    "skills": ["./skills/ic-research", "./skills/ic-prepare", "./skills/ic-review", "./skills/ic-do"]
   }
 }

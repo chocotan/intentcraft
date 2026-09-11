@@ -4,16 +4,23 @@ import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SKILLS = {
-	intentcraft: new URL("../skills/intentcraft/SKILL.md", import.meta.url),
-	"intentcraft-review": new URL("../skills/intentcraft-review/SKILL.md", import.meta.url),
+	"ic-research": new URL("../skills/ic-research/SKILL.md", import.meta.url),
+	"ic-prepare": new URL("../skills/ic-prepare/SKILL.md", import.meta.url),
+	"ic-review": new URL("../skills/ic-review/SKILL.md", import.meta.url),
+	"ic-do": new URL("../skills/ic-do/SKILL.md", import.meta.url),
+} as const;
+
+const DESCRIPTIONS = {
+	"ic-research": "证据研究、竞品与开源项目分析",
+	"ic-prepare": "产品、需求、UI设计与实施计划",
+	"ic-review": "独立只读审查研究与准备成果",
+	"ic-do": "按授权编码、测试与验证",
 } as const;
 
 export default function (pi: ExtensionAPI) {
 	for (const [name, url] of Object.entries(SKILLS)) {
 		pi.registerCommand(name, {
-			description: name === "intentcraft"
-				? "研究、讨论、需求收敛与实施规划"
-				: "独立只读审查研究、需求与实施计划",
+			description: DESCRIPTIONS[name as keyof typeof DESCRIPTIONS],
 			handler: async (args, ctx) => {
 				const skillPath = fileURLToPath(url);
 				const skill = readFileSync(skillPath, "utf8");

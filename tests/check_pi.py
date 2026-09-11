@@ -60,7 +60,8 @@ try:
                 '--provider', 'local-fixture', '--model', 'echo', '--skill', str(control),
                 '--extension', str(ROOT / 'extensions' / 'intentcraft.ts')]
         if not options.plugin_only:
-            for name in ['intentcraft', 'intentcraft-review']:
+            skill_names = ['ic-research', 'ic-prepare', 'ic-review', 'ic-do']
+            for name in skill_names:
                 args += ['--skill', str(ROOT / 'skills' / name)]
         env = {'PATH': os.environ['PATH'], 'HOME': tmp, 'PI_CODING_AGENT_DIR': str(agent),
                'PI_OFFLINE': '1', 'PI_TELEMETRY': '0'}
@@ -99,13 +100,14 @@ try:
             extension_names = sorted(c['name'] for c in result['data']['commands'] if c['source'] == 'extension')
             # RPC still catalogs loaded skills when the interactive command switch is off.
             expected_names = ['skill:discovery-control'] if options.plugin_only else [
-                'skill:discovery-control', 'skill:intentcraft', 'skill:intentcraft-review',
+                'skill:discovery-control', 'skill:ic-do', 'skill:ic-prepare',
+                'skill:ic-research', 'skill:ic-review',
             ]
             assert names == expected_names, names
-            assert set(['intentcraft', 'intentcraft-review']).issubset(extension_names), extension_names
+            assert set(['ic-research', 'ic-prepare', 'ic-review', 'ic-do']).issubset(extension_names), extension_names
             send({'type': 'set_auto_retry', 'enabled': False})
             until(lambda e: e.get('command') == 'set_auto_retry')
-            for name in [None, 'intentcraft', 'intentcraft-review']:
+            for name in [None, 'ic-research', 'ic-prepare', 'ic-review', 'ic-do']:
                 cases = [(None, '')] if name is None else [('/', 'MANUAL_ARGUMENT'), ('/', '')]
                 if name and not options.plugin_only:
                     cases.append(('/skill:', 'MANUAL_ARGUMENT'))
@@ -120,14 +122,19 @@ try:
                     body = requests[-1]
                     system = json.dumps([m for m in body['messages'] if m['role'] in ['system', 'developer']], ensure_ascii=False)
                     assert 'DISCOVERY_CONTROL_PRESENT' in system, 'Positive control must enter discovery'
-                    assert '<name>intentcraft</name>' not in system
-                    assert '<name>intentcraft-review</name>' not in system
+                    for hidden_name in ['ic-research', 'ic-prepare', 'ic-review', 'ic-do']:
+                        assert f'<name>{hidden_name}</name>' not in system
                     assert '仅由用户显式调用' not in system
                     user = json.dumps([m for m in body['messages'] if m['role'] == 'user'], ensure_ascii=False)
                     if name:
                         assert 'rule: manual-only' in user
                         assert ('MANUAL_ARGUMENT' in user) == bool(argument)
-                        expected = 'rule: read-only' if name.endswith('-review') else 'rule: proportional'
+                        expected = {
+                            'ic-research': 'rule: evidence-first',
+                            'ic-prepare': 'rule: product-first',
+                            'ic-review': 'rule: read-only',
+                            'ic-do': 'rule: implementation',
+                        }[name]
                         assert expected in user, 'Correct skill body must be expanded'
                         skill_path = ROOT / 'skills' / name / 'SKILL.md'
                         assert str(skill_path) in user, 'Skill absolute location must reach the model'
@@ -139,7 +146,7 @@ try:
                     else:
                         assert 'rule: manual-only' not in user
             print(json.dumps({'host': subprocess.check_output(['pi', '--version'], text=True).strip(),
-                              'plugin_commands': ['intentcraft', 'intentcraft-review'],
+                              'plugin_commands': ['ic-research', 'ic-prepare', 'ic-review', 'ic-do'],
                               'skill_commands': names[1:], 'hidden_from_discovery': True,
                               'positive_control_visible': True,
                               'plugin_only': options.plugin_only,

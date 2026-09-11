@@ -9,7 +9,8 @@ import { execFileSync } from 'node:child_process';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = path => readFileSync(join(root, path), 'utf8');
 const manifest = JSON.parse(read('package.json'));
-const names = ['intentcraft', 'intentcraft-review'];
+const names = ['ic-research', 'ic-prepare', 'ic-review', 'ic-do'];
+const docs = names.map(name => `docs/${name}`);
 
 function walk(path) {
   assert(!lstatSync(path).isSymbolicLink(), `Unexpected symlink: ${path}`);
@@ -18,7 +19,6 @@ function walk(path) {
     : [path];
 }
 
-// Validate this project's deliberately small frontmatter subset. No YAML parser claims.
 function frontmatter(text) {
   const match = text.match(/^---\n([\s\S]*?)\n---\n/);
   assert(match, 'Missing frontmatter');
@@ -35,13 +35,16 @@ function frontmatter(text) {
 
 function checkLinks(file, boundary) {
   const text = readFileSync(file, 'utf8');
+  const links = [];
   for (const [, link] of text.matchAll(/\[[^\]]*\]\(([^\s)]+)\)/g)) {
     if (/^(https?:|mailto:|#)/.test(link)) continue;
     const path = resolve(dirname(file), decodeURIComponent(link.split('#')[0]));
     const rel = relative(boundary, path);
     assert(rel !== '..' && !rel.startsWith('../'), `Link escapes owner: ${file} -> ${link}`);
     assert(existsSync(path), `Broken link: ${file} -> ${link}`);
+    links.push(path);
   }
+  return links;
 }
 
 assert.equal(manifest.name, 'intentcraft');
@@ -54,17 +57,21 @@ assert(!manifest.dependencies && !manifest.devDependencies, 'Keep runtime depend
 assert.deepEqual(manifest.peerDependencies, { '@earendil-works/pi-coding-agent': '*' });
 const extension = read('extensions/intentcraft.ts');
 assert(extension.includes('for (const [name, url] of Object.entries(SKILLS))'), 'Register plugin commands');
-assert(extension.includes('new URL("../skills/intentcraft/SKILL.md", import.meta.url)'));
-assert(extension.includes('new URL("../skills/intentcraft-review/SKILL.md", import.meta.url)'));
+for (const name of names) {
+  assert(extension.includes(`new URL("../skills/${name}/SKILL.md", import.meta.url)`), `${name} plugin path`);
+}
 assert(extension.includes('pi.sendUserMessage(message'), 'Forward plugin commands to the agent');
 assert.deepEqual(Object.keys(manifest.scripts), ['test'], 'No installation hooks');
 assert(manifest.keywords.includes('pi-package'));
 
+for (const path of docs) assert(read(`skills/${path.slice(5)}/SKILL.md`).includes(path), `${path}: missing output path contract`);
 const skillFiles = walk(join(root, 'skills'));
-assert.equal(skillFiles.filter(path => path.endsWith('/SKILL.md')).length, 2);
+assert.equal(skillFiles.filter(path => path.endsWith('/SKILL.md')).length, 4);
 const markers = {
-  intentcraft: ['manual-only', 'proportional', 'surface-aware', 'evidence-before-claim', 'readiness-not-authority'],
-  'intentcraft-review': ['manual-only', 'read-only', 'independent-evidence', 'review-coverage'],
+  'ic-research': ['manual-only', 'evidence-first', 'output-contract'],
+  'ic-prepare': ['manual-only', 'product-first', 'grill-on-demand', 'output-contract', 'plan-ready'],
+  'ic-review': ['manual-only', 'read-only', 'output-contract'],
+  'ic-do': ['manual-only', 'implementation', 'test-required', 'ui-automation', 'output-contract'],
 };
 
 for (const name of names) {
@@ -78,30 +85,21 @@ for (const name of names) {
   assert(fields.compatibility.length > 0 && fields.compatibility.length <= 500);
   assert.equal(fields.license, 'MIT');
   assert(main.includes(`/skill:${name}`), 'Document the real Pi command');
-  for (const marker of markers[name]) assert(main.includes(`<!-- rule: ${marker} -->`), marker);
-  for (const file of walk(owner)) {
+  for (const marker of markers[name]) assert(main.includes(`<!-- rule: ${marker} -->`), `${name}: ${marker}`);
+  const reachable = new Set();
+  function visit(file) {
+    if (reachable.has(file)) return;
+    reachable.add(file);
     assert(file.endsWith('.md'), 'Skills contain instructions only');
-    checkLinks(file, owner); // Each skill must be independently installable.
+    for (const link of checkLinks(file, owner)) visit(link);
   }
+  visit(join(owner, 'SKILL.md'));
+  assert.deepEqual([...reachable].sort(), walk(owner).sort(), `${name}: unreachable skill resource`);
 }
 
-const referenceMarkers = {
-  'research.md': ['chain-coverage', 'evidence-types', 'bounded-negative', 'competitor-research'],
-  'discussion.md': ['combination-check'],
-  'requirements.md': ['requirements-ready'],
-  'planning.md': ['outcome-units', 'plan-ready'],
-  'continuity.md': ['decision-continuity', 'invalidate-affected'],
-  'probes.md': ['prototype-self-review-loop'],
-};
-for (const [file, required] of Object.entries(referenceMarkers)) {
-  const text = read(`skills/intentcraft/references/${file}`);
-  for (const marker of required) assert(text.includes(`<!-- rule: ${marker} -->`), marker);
-}
+for (const file of [...walk(join(root, 'tests')), ...walk(join(root, 'docs')), join(root, 'README.md'), join(root, 'ATTRIBUTION.md')]
+  .filter(path => path.endsWith('.md'))) checkLinks(file, root);
 
-for (const file of [join(root, 'README.md'), join(root, 'ATTRIBUTION.md'),
-  ...walk(join(root, 'tests')), ...walk(join(root, 'docs'))].filter(path => path.endsWith('.md'))) {
-  checkLinks(file, root);
-}
 const ignore = read('.gitignore').split('\n');
 assert(ignore.includes('/example/') && ignore.includes('/.pi/'));
 const cases = read('tests/scenarios.md').match(/^## S\d+ /gm) ?? [];
@@ -120,7 +118,8 @@ try {
   ].sort();
   assert.deepEqual(packed, expected, 'Unexpected distribution files or missing resources');
   assert(!packed.some(path => /^(example|\.pi|\.agents|node_modules)\//.test(path)));
-  console.log(`PASS: 2 manual-only skills, local links, rule markers, ${cases.length} scenario definitions, ${packed.length} packed files.`);
+  assert(packed.some(path => path === 'skills/ic-do/SKILL.md'));
+  console.log(`PASS: ${names.length} manual-only skills, output directories, reachable resources, rule markers, ${cases.length} scenario definitions, ${packed.length} packed files.`);
   console.log('Static checks passed; model behavior and host enforcement require separate evidence.');
 } finally {
   rmSync(cache, { recursive: true, force: true });
