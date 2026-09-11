@@ -9,8 +9,7 @@ import { execFileSync } from 'node:child_process';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = path => readFileSync(join(root, path), 'utf8');
 const manifest = JSON.parse(read('package.json'));
-const names = ['ic-research', 'ic-prepare', 'ic-review', 'ic-do'];
-const docs = names.map(name => `docs/${name}`);
+const names = ['ic-research', 'ic-prepare', 'ic-design-review', 'ic-do', 'ic-code-review'];
 
 function walk(path) {
   assert(!lstatSync(path).isSymbolicLink(), `Unexpected symlink: ${path}`);
@@ -61,19 +60,28 @@ for (const name of names) {
   assert(extension.includes(`new URL("../skills/${name}/SKILL.md", import.meta.url)`), `${name} plugin path`);
 }
 assert(extension.includes('pi.sendUserMessage(message'), 'Forward plugin commands to the agent');
+assert(extension.includes('descriptionFrom(skill, name)'), 'Read command descriptions from skill frontmatter');
+assert(extension.includes('const projectRoot = process.cwd()'), 'Pass the target project root to the model');
+assert(!extension.includes('const DESCRIPTIONS'), 'Do not duplicate skill descriptions in the extension');
 assert.deepEqual(Object.keys(manifest.scripts), ['test'], 'No installation hooks');
 assert(manifest.keywords.includes('pi-package'));
 
-for (const path of docs) assert(read(`skills/${path.slice(5)}/SKILL.md`).includes(path), `${path}: missing output path contract`);
+for (const name of names) {
+  const main = read(`skills/${name}/SKILL.md`);
+  assert(main.includes(`docs/${name}/YYYY-MM-DD-<topic>.md`), `${name}: missing dated output path contract`);
+  if (name === 'ic-do') {
+    assert(main.includes('版本或工作区快照'), `${name}: missing version-bound execution evidence`);
+  }
+  if (name === 'ic-code-review') {
+    assert(main.includes('执行证据对应的版本或工作区快照'), `${name}: missing version-bound review evidence`);
+    assert(main.includes('仅允许按本 skill 的产出契约创建或更新审查报告'), `${name}: unclear read-only report exception`);
+  }
+}
+for (const obsolete of ['docs/ic-review', 'skills/ic-review']) {
+  assert(!existsSync(join(root, obsolete)), `Obsolete path remains: ${obsolete}`);
+}
 const skillFiles = walk(join(root, 'skills'));
-assert.equal(skillFiles.filter(path => path.endsWith('/SKILL.md')).length, 4);
-const markers = {
-  'ic-research': ['manual-only', 'evidence-first', 'output-contract'],
-  'ic-prepare': ['manual-only', 'product-first', 'grill-on-demand', 'output-contract', 'plan-ready'],
-  'ic-review': ['manual-only', 'read-only', 'output-contract'],
-  'ic-do': ['manual-only', 'implementation', 'test-required', 'ui-automation', 'output-contract'],
-};
-
+assert.equal(skillFiles.filter(path => path.endsWith('/SKILL.md')).length, 5);
 for (const name of names) {
   const owner = join(root, 'skills', name);
   const main = read(`skills/${name}/SKILL.md`);
@@ -85,7 +93,6 @@ for (const name of names) {
   assert(fields.compatibility.length > 0 && fields.compatibility.length <= 500);
   assert.equal(fields.license, 'MIT');
   assert(main.includes(`/skill:${name}`), 'Document the real Pi command');
-  for (const marker of markers[name]) assert(main.includes(`<!-- rule: ${marker} -->`), `${name}: ${marker}`);
   const reachable = new Set();
   function visit(file) {
     if (reachable.has(file)) return;
@@ -118,8 +125,8 @@ try {
   ].sort();
   assert.deepEqual(packed, expected, 'Unexpected distribution files or missing resources');
   assert(!packed.some(path => /^(example|\.pi|\.agents|node_modules)\//.test(path)));
-  assert(packed.some(path => path === 'skills/ic-do/SKILL.md'));
-  console.log(`PASS: ${names.length} manual-only skills, output directories, reachable resources, rule markers, ${cases.length} scenario definitions, ${packed.length} packed files.`);
+  assert(packed.some(path => path === 'skills/ic-code-review/SKILL.md'));
+  console.log(`PASS: ${names.length} manual-only skills, dated output contracts, reachable resources, contract text, ${cases.length} scenario definitions, ${packed.length} packed files.`);
   console.log('Static checks passed; model behavior and host enforcement require separate evidence.');
 } finally {
   rmSync(cache, { recursive: true, force: true });

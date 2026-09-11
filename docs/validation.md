@@ -4,42 +4,45 @@
 
 ## 检查类型
 
-- `npm test`：元数据、四个手动入口、skill-local 链接、文档归档目录、规则标记和分发内容检查。
-- `npm pack --dry-run --json`：确认安装包包含维护资源，不包含 `example/`、`.pi/` 或会话文件。
-- `git diff --check`：检查当前变更的空白错误。
+- `npm test`：元数据、五个手动入口、skill-local 链接、日期产出契约和分发内容。
+- `npm pack --dry-run --json`：确认安装包资源完整且不包含 `example/`、`.pi/` 或会话文件。
+- `git diff --check`：检查变更空白错误。
 - `tests/check_pi.py`：在隔离配置与本地假模型中检查 plugin/skill 加载、自动发现隐藏、参数传递、绝对 skill 路径和相对引用基准。
 - [行为场景](../tests/scenarios.md)：模型/宿主评估输入与判据，不是静态测试的通过证明。
 
-## ic-* 结构重构
+## 当前重构
 
-### 目标
-
-入口从旧的 `intentcraft` / `intentcraft-review` 重构为四个显式 `ic-*` skill：
+当前架构为五个显式入口：
 
 ```text
-ic-research → ic-prepare → ic-review → ic-do
+ic-research → ic-prepare → ic-design-review → ic-do → ic-code-review
 ```
 
-四者不自动互调。研究、准备、审查和实现分别拥有独立授权与完成标准；需要保存文档时分别归档到：
+各入口不自动互调。随包资源相对 skill 目录解析；业务项目的 `docs/...` 持久产出相对目标业务项目根目录，默认是调用时工作目录，不写入 skill 安装目录。持久产出按主产出和阶段归档：
 
 ```text
-docs/ic-research/
-docs/ic-prepare/
-docs/ic-review/
-docs/ic-do/
+docs/ic-research/YYYY-MM-DD-<topic>.md
+docs/ic-prepare/YYYY-MM-DD-<topic>.md
+docs/ic-design-review/YYYY-MM-DD-<topic>.md
+docs/ic-do/YYYY-MM-DD-<topic>.md
+docs/ic-code-review/YYYY-MM-DD-<topic>.md
 ```
 
-`ic-prepare` 吸收产品地图、功能/用户旅程、UI 契约、Design 和实施计划；UI 契约借鉴 CodeStable-Lite 的当前/目标/示意、关键状态、空间边界和原型/规格分离。整体边界沿用完整 CodeStable v2 的按需加载、事实与产品决策分离、风险相称和一个事实一个归宿原则。
+`ic-prepare` 每次先选一个主产出；产品地图、需求、UI、Design、原型和 Plan 只按需组合，用户明确要求组合时也不填空。UI 规则吸收当前/目标/示意、关键状态、动态空间边界和原型/规格分离。`ic-design-review` 只审开发前准备，`ic-code-review` 只审开发后代码与证据。
 
-### 实际检查
+## 已执行检查
 
-- `npm test`：通过；4 个手动 skill、4 个文档归档路径、38 个场景定义和 18 个分发文件。
-- `npm pack --dry-run --json --ignore-scripts`：通过；包内容与静态白名单一致，不含 `example/`、`.pi/` 或 `.agents/`。
+以下结果对应本次五入口和日期契约重构：
+
+- `npm test`：通过；5 个手动 skill、严格日期产出路径契约、40 个场景定义、19 个分发文件。测试还要求 `ic-do` 记录版本/工作区快照，`ic-code-review` 核对执行证据与版本并允许仅更新自身审查报告。
+- 日期产出路径负向检查：在隔离副本中移除 `YYYY-MM-DD-<topic>.md` 后，`npm test` 按预期失败。
+- `npm pack --dry-run --json --ignore-scripts`：通过；静态白名单一致。
 - `git diff --check`：通过。
-- `python3 tests/check_pi.py`：通过；Pi 0.84.4，13 个本地假模型请求，验证四个原生入口与四个 plugin 入口。
-- `python3 tests/check_pi.py --plugin-only`：通过；Pi 0.84.4，9 个本地假模型请求，关闭 skill 命令时仅验证四个 plugin 入口。
-- S34–S38：已加入产出契约、显式交接、测试和不自动串联场景，尚未进行真实模型评估。
+- `python3 tests/check_pi.py`：Pi 0.84.4 通过，16 个本地假模型请求，验证五个原生入口和五个 plugin 入口。
+- `python3 tests/check_pi.py --plugin-only`：Pi 0.84.4 通过，11 个本地假模型请求，关闭 skill 命令时验证五个 plugin 入口。
+- Pi 官方 `docs/skills.md` 说明 `disable-model-invocation: true` 会将 skill 隐藏出 system prompt，用户仍可用 `/skill:name` 调用；本项目的 Pi 检查也实际验证了五个目标 skill 不在 system prompt、阳性对照仍可见。该结论限定于 Pi 0.84.4，其他 Pi 版本和宿主未验证。
+- S34–S40：覆盖五入口产出、主产出选择、显式交接、测试和不自动串联；尚未进行真实模型评估。
 
-### 局限
+## 局限
 
 静态检查不证明模型会遵守 skill；Pi 假模型只证明宿主请求传递和入口加载，不证明真实模型的研究、产品设计、审查或编码质量。未运行、工具不可用、无法访问外部资料或只做静态分析的内容必须在对应产出中标明。

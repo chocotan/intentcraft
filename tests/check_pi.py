@@ -60,7 +60,7 @@ try:
                 '--provider', 'local-fixture', '--model', 'echo', '--skill', str(control),
                 '--extension', str(ROOT / 'extensions' / 'intentcraft.ts')]
         if not options.plugin_only:
-            skill_names = ['ic-research', 'ic-prepare', 'ic-review', 'ic-do']
+            skill_names = ['ic-research', 'ic-prepare', 'ic-design-review', 'ic-do', 'ic-code-review']
             for name in skill_names:
                 args += ['--skill', str(ROOT / 'skills' / name)]
         env = {'PATH': os.environ['PATH'], 'HOME': tmp, 'PI_CODING_AGENT_DIR': str(agent),
@@ -100,14 +100,14 @@ try:
             extension_names = sorted(c['name'] for c in result['data']['commands'] if c['source'] == 'extension')
             # RPC still catalogs loaded skills when the interactive command switch is off.
             expected_names = ['skill:discovery-control'] if options.plugin_only else [
-                'skill:discovery-control', 'skill:ic-do', 'skill:ic-prepare',
-                'skill:ic-research', 'skill:ic-review',
+                'skill:discovery-control', 'skill:ic-code-review', 'skill:ic-design-review',
+                'skill:ic-do', 'skill:ic-prepare', 'skill:ic-research',
             ]
             assert names == expected_names, names
-            assert set(['ic-research', 'ic-prepare', 'ic-review', 'ic-do']).issubset(extension_names), extension_names
+            assert set(['ic-research', 'ic-prepare', 'ic-design-review', 'ic-do', 'ic-code-review']).issubset(extension_names), extension_names
             send({'type': 'set_auto_retry', 'enabled': False})
             until(lambda e: e.get('command') == 'set_auto_retry')
-            for name in [None, 'ic-research', 'ic-prepare', 'ic-review', 'ic-do']:
+            for name in [None, 'ic-research', 'ic-prepare', 'ic-design-review', 'ic-do', 'ic-code-review']:
                 cases = [(None, '')] if name is None else [('/', 'MANUAL_ARGUMENT'), ('/', '')]
                 if name and not options.plugin_only:
                     cases.append(('/skill:', 'MANUAL_ARGUMENT'))
@@ -122,31 +122,25 @@ try:
                     body = requests[-1]
                     system = json.dumps([m for m in body['messages'] if m['role'] in ['system', 'developer']], ensure_ascii=False)
                     assert 'DISCOVERY_CONTROL_PRESENT' in system, 'Positive control must enter discovery'
-                    for hidden_name in ['ic-research', 'ic-prepare', 'ic-review', 'ic-do']:
+                    for hidden_name in ['ic-research', 'ic-prepare', 'ic-design-review', 'ic-do', 'ic-code-review']:
                         assert f'<name>{hidden_name}</name>' not in system
                     assert '仅由用户显式调用' not in system
                     user = json.dumps([m for m in body['messages'] if m['role'] == 'user'], ensure_ascii=False)
                     if name:
-                        assert 'rule: manual-only' in user
+                        assert f'# {name}' in user, 'Correct skill body must be expanded'
                         assert ('MANUAL_ARGUMENT' in user) == bool(argument)
-                        expected = {
-                            'ic-research': 'rule: evidence-first',
-                            'ic-prepare': 'rule: product-first',
-                            'ic-review': 'rule: read-only',
-                            'ic-do': 'rule: implementation',
-                        }[name]
-                        assert expected in user, 'Correct skill body must be expanded'
                         skill_path = ROOT / 'skills' / name / 'SKILL.md'
                         assert str(skill_path) in user, 'Skill absolute location must reach the model'
                         if prefix == '/':
                             assert f'用户显式启动 {name}。' in user
-                            assert f'正文中的相对引用以 {skill_path.parent} 为基准解析' in user
+                            assert f'随包资源中的相对引用以 {skill_path.parent} 为基准解析' in user
+                            assert f'业务项目产出路径以目标业务项目根目录为基准，默认是调用时工作目录 {tmp}' in user
                         else:
                             assert f'References are relative to {skill_path.parent}.' in user
                     else:
                         assert 'rule: manual-only' not in user
             print(json.dumps({'host': subprocess.check_output(['pi', '--version'], text=True).strip(),
-                              'plugin_commands': ['ic-research', 'ic-prepare', 'ic-review', 'ic-do'],
+                              'plugin_commands': ['ic-research', 'ic-prepare', 'ic-design-review', 'ic-do', 'ic-code-review'],
                               'skill_commands': names[1:], 'hidden_from_discovery': True,
                               'positive_control_visible': True,
                               'plugin_only': options.plugin_only,
