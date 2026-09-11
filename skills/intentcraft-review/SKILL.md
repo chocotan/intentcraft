@@ -3,7 +3,7 @@ name: intentcraft-review
 description: "仅由用户显式调用。独立、只读地审查研究结论、需求、原型决策与实施计划，核实证据、矛盾、遗漏及就绪程度；不自动修文档或启动开发。"
 disable-model-invocation: true
 license: MIT
-compatibility: "主要面向支持手动 skill 命令的 Pi；其他宿主须确认禁用自动调用能力。可独立安装，使用宿主已有读取与研究工具。"
+compatibility: "主要面向 Pi；安装本包 plugin 后可用 /intentcraft-review，直接加载本目录内容。其他宿主按手动 skill 规范加载，并确认禁用自动调用能力。可独立安装，使用宿主已有读取与研究工具。"
 ---
 
 # Intentcraft Review

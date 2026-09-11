@@ -1,15 +1,20 @@
 """Exercise Pi's real skill loader against a local, deterministic fake model."""
+import argparse
 import json
 import os
 from pathlib import Path
 import queue
 import subprocess
-import sys
 import tempfile
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-ROOT = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).resolve().parents[1]
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('root', nargs='?', type=Path, default=Path(__file__).resolve().parents[1])
+parser.add_argument('--plugin-only', action='store_true',
+                    help='Disable skill commands and omit target skill registration')
+options = parser.parse_args()
+ROOT = options.root.resolve()
 requests = []
 
 
@@ -37,6 +42,9 @@ try:
         home = Path(tmp)
         agent = home / 'agent'
         agent.mkdir()
+        (agent / 'settings.json').write_text(json.dumps({
+            'enableSkillCommands': not options.plugin_only,
+        }))
         (agent / 'models.json').write_text(json.dumps({'providers': {'local-fixture': {
             'baseUrl': f'http://127.0.0.1:{server.server_port}/v1',
             'api': 'openai-completions', 'apiKey': 'local-fixture',
@@ -49,9 +57,11 @@ try:
             'disable-model-invocation: false\n---\n# Test control\n')
         args = ['pi', '--mode', 'rpc', '--no-session', '--no-extensions', '--no-skills',
                 '--no-prompt-templates', '--no-context-files', '--tools', 'read', '--offline',
-                '--provider', 'local-fixture', '--model', 'echo', '--skill', str(control)]
-        for name in ['intentcraft', 'intentcraft-review']:
-            args += ['--skill', str(ROOT / 'skills' / name)]
+                '--provider', 'local-fixture', '--model', 'echo', '--skill', str(control),
+                '--extension', str(ROOT / 'extensions' / 'intentcraft.ts')]
+        if not options.plugin_only:
+            for name in ['intentcraft', 'intentcraft-review']:
+                args += ['--skill', str(ROOT / 'skills' / name)]
         env = {'PATH': os.environ['PATH'], 'HOME': tmp, 'PI_CODING_AGENT_DIR': str(agent),
                'PI_OFFLINE': '1', 'PI_TELEMETRY': '0'}
         proc = subprocess.Popen(args, cwd=tmp, env=env, stdin=subprocess.PIPE,
@@ -86,33 +96,57 @@ try:
             send({'id': 'commands', 'type': 'get_commands'})
             result = until(lambda e: e.get('id') == 'commands')
             names = sorted(c['name'] for c in result['data']['commands'] if c['source'] == 'skill')
-            assert names == ['skill:discovery-control', 'skill:intentcraft', 'skill:intentcraft-review'], names
+            extension_names = sorted(c['name'] for c in result['data']['commands'] if c['source'] == 'extension')
+            # RPC still catalogs loaded skills when the interactive command switch is off.
+            expected_names = ['skill:discovery-control'] if options.plugin_only else [
+                'skill:discovery-control', 'skill:intentcraft', 'skill:intentcraft-review',
+            ]
+            assert names == expected_names, names
+            assert set(['intentcraft', 'intentcraft-review']).issubset(extension_names), extension_names
             send({'type': 'set_auto_retry', 'enabled': False})
             until(lambda e: e.get('command') == 'set_auto_retry')
             for name in [None, 'intentcraft', 'intentcraft-review']:
-                send({'type': 'new_session'})
-                until(lambda e: e.get('command') == 'new_session')
-                message = f'/skill:{name} MANUAL_ARGUMENT' if name else 'Say hello only.'
-                before = len(requests)
-                send({'type': 'prompt', 'message': message})
-                until(lambda e: e.get('type') == 'agent_settled')
-                assert len(requests) == before + 1, 'Expected exactly one local request'
-                body = requests[-1]
-                system = json.dumps([m for m in body['messages'] if m['role'] in ['system', 'developer']], ensure_ascii=False)
-                assert 'DISCOVERY_CONTROL_PRESENT' in system, 'Positive control must enter discovery'
-                assert '<name>intentcraft</name>' not in system
-                assert '<name>intentcraft-review</name>' not in system
-                assert '仅由用户显式调用' not in system
-                user = json.dumps([m for m in body['messages'] if m['role'] == 'user'], ensure_ascii=False)
-                if name:
-                    assert 'rule: manual-only' in user and 'MANUAL_ARGUMENT' in user
-                    expected = 'rule: read-only' if name.endswith('-review') else 'rule: proportional'
-                    assert expected in user, 'Correct skill body must be expanded'
-                else:
-                    assert 'rule: manual-only' not in user
+                cases = [(None, '')] if name is None else [('/', 'MANUAL_ARGUMENT'), ('/', '')]
+                if name and not options.plugin_only:
+                    cases.append(('/skill:', 'MANUAL_ARGUMENT'))
+                for prefix, argument in cases:
+                    send({'type': 'new_session'})
+                    until(lambda e: e.get('command') == 'new_session')
+                    message = f'{prefix}{name} {argument}'.strip() if prefix else 'Say hello only.'
+                    before = len(requests)
+                    send({'type': 'prompt', 'message': message})
+                    until(lambda e: e.get('type') == 'agent_settled')
+                    assert len(requests) == before + 1, 'Expected exactly one local request'
+                    body = requests[-1]
+                    system = json.dumps([m for m in body['messages'] if m['role'] in ['system', 'developer']], ensure_ascii=False)
+                    assert 'DISCOVERY_CONTROL_PRESENT' in system, 'Positive control must enter discovery'
+                    assert '<name>intentcraft</name>' not in system
+                    assert '<name>intentcraft-review</name>' not in system
+                    assert '仅由用户显式调用' not in system
+                    user = json.dumps([m for m in body['messages'] if m['role'] == 'user'], ensure_ascii=False)
+                    if name:
+                        assert 'rule: manual-only' in user
+                        assert ('MANUAL_ARGUMENT' in user) == bool(argument)
+                        expected = 'rule: read-only' if name.endswith('-review') else 'rule: proportional'
+                        assert expected in user, 'Correct skill body must be expanded'
+                        skill_path = ROOT / 'skills' / name / 'SKILL.md'
+                        assert str(skill_path) in user, 'Skill absolute location must reach the model'
+                        if prefix == '/':
+                            assert f'用户显式启动 {name}。' in user
+                            assert f'正文中的相对引用以 {skill_path.parent} 为基准解析' in user
+                        else:
+                            assert f'References are relative to {skill_path.parent}.' in user
+                    else:
+                        assert 'rule: manual-only' not in user
             print(json.dumps({'host': subprocess.check_output(['pi', '--version'], text=True).strip(),
-                              'commands': names[1:], 'hidden_from_discovery': True,
-                              'positive_control_visible': True, 'manual_expansion': 'both passed',
+                              'plugin_commands': ['intentcraft', 'intentcraft-review'],
+                              'skill_commands': names[1:], 'hidden_from_discovery': True,
+                              'positive_control_visible': True,
+                              'plugin_only': options.plugin_only,
+                              'skill_commands_enabled': not options.plugin_only,
+                              'manual_expansion': 'plugin passed' if options.plugin_only else 'skill-and-plugin passed',
+                              'absolute_skill_location': True, 'relative_reference_base': True,
+                              'plugin_empty_argument': True,
                               'local_stub_requests': len(requests), 'external_model_requests': 0,
                               'global_config_changed': False}, ensure_ascii=False, indent=2))
         finally:

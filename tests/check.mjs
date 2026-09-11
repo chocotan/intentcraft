@@ -46,8 +46,17 @@ function checkLinks(file, boundary) {
 
 assert.equal(manifest.name, 'intentcraft');
 assert.equal(manifest.private, true, 'Do not accidentally publish to npm');
-assert.deepEqual(manifest.pi, { skills: names.map(name => `./skills/${name}`) });
+assert.deepEqual(manifest.pi, {
+  extensions: ['./extensions'],
+  skills: names.map(name => `./skills/${name}`),
+});
 assert(!manifest.dependencies && !manifest.devDependencies, 'Keep runtime dependency-free');
+assert.deepEqual(manifest.peerDependencies, { '@earendil-works/pi-coding-agent': '*' });
+const extension = read('extensions/intentcraft.ts');
+assert(extension.includes('for (const [name, url] of Object.entries(SKILLS))'), 'Register plugin commands');
+assert(extension.includes('new URL("../skills/intentcraft/SKILL.md", import.meta.url)'));
+assert(extension.includes('new URL("../skills/intentcraft-review/SKILL.md", import.meta.url)'));
+assert(extension.includes('pi.sendUserMessage(message'), 'Forward plugin commands to the agent');
 assert.deepEqual(Object.keys(manifest.scripts), ['test'], 'No installation hooks');
 assert(manifest.keywords.includes('pi-package'));
 
@@ -77,11 +86,12 @@ for (const name of names) {
 }
 
 const referenceMarkers = {
-  'research.md': ['chain-coverage', 'evidence-types', 'bounded-negative'],
+  'research.md': ['chain-coverage', 'evidence-types', 'bounded-negative', 'competitor-research'],
   'discussion.md': ['combination-check'],
   'requirements.md': ['requirements-ready'],
   'planning.md': ['outcome-units', 'plan-ready'],
   'continuity.md': ['decision-continuity', 'invalidate-affected'],
+  'probes.md': ['prototype-self-review-loop'],
 };
 for (const [file, required] of Object.entries(referenceMarkers)) {
   const text = read(`skills/intentcraft/references/${file}`);
@@ -106,7 +116,7 @@ try {
     maxBuffer: 2 * 1024 * 1024,
   }))[0].files.map(file => file.path).sort();
   const expected = ['package.json', 'README.md', 'LICENSE', 'ATTRIBUTION.md',
-    ...['skills', 'tests', 'docs'].flatMap(dir => walk(join(root, dir)).map(path => relative(root, path)))
+    ...['extensions', 'skills', 'tests', 'docs'].flatMap(dir => walk(join(root, dir)).map(path => relative(root, path)))
   ].sort();
   assert.deepEqual(packed, expected, 'Unexpected distribution files or missing resources');
   assert(!packed.some(path => /^(example|\.pi|\.agents|node_modules)\//.test(path)));

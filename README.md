@@ -14,6 +14,9 @@ Intentcraft 是两个仅由用户显式启动的 AI skills，重点服务产品�
 | `intentcraft-review` | 独立、只读地审查研究、需求和计划 | 有证据的问题、覆盖缺口与明确结论 |
 
 研究、头脑风暴和计划是同一负责人的工作方法，不是需要用户手动接力的三个 skill。
+需求调研遇到路线选择时，会按需调查同类商业项目、同类开源项目、可直接复用的开源库
+和仓库已有能力；官网界面可用浏览器查看，公开源码候选会 clone 后做模块、功能、UI、
+工作流、架构与技术设计分析。许可证暂不作为需求调研阶段的筛选依据。
 两个入口也不自动互相调用。评审、执行、提交和发布都不因写完计划而自动发生。
 
 ## 安装与主动触发
@@ -26,18 +29,31 @@ pi install git:github.com/chocotan/intentcraft
 
 仅在一个项目安装可加 `-l`；本地试用可执行 `pi install /path/to/intentcraft`。
 仓库保持 `private: true` 的 npm 发布保护，使用 Git 或本地包安装，不发布 npm 包。
+安装后由 Pi plugin 注册短斜杠命令：
 
 ```text
-/skill:intentcraft 我想做一个团队知识库，先讨论目标，不要实现。
-/skill:intentcraft 只研究这两个竞品的权限与分享工作流，按方案选型深度调查。
-/skill:intentcraft 继续 docs/specs/import.md，从上次的待决问题开始。
-/skill:intentcraft 需求已确认，请规划后台导入任务；没有前端，不需要原型。
-/skill:intentcraft-review 审查 docs/plans/import.md，并核对引用的需求与证据。
+/intentcraft 我想做一个团队知识库，先讨论目标，不要实现。
+/intentcraft 只研究这两个竞品的权限与分享工作流，按方案选型深度调查。
+/intentcraft 继续 docs/specs/import.md，从上次的待决问题开始。
+/intentcraft 需求已确认，请规划后台导入任务；没有前端，不需要原型。
+/intentcraft-review 审查 docs/plans/import.md，并核对引用的需求与证据。
 ```
 
-两个 skill 均设置 `disable-model-invocation: true`：在支持该字段的 Pi 中不进入
-模型自动发现的 skill 列表，但仍可通过 `/skill:名称` 启动。若关闭了 skill
-命令，先在 Pi 设置中启用 `enableSkillCommands`。
+plugin 命令直接加载包内对应的 `SKILL.md`，附上显式启动说明、文件绝对位置和
+相对引用基准；references 相对 skill 目录读取，不相对当前业务项目。
+不依赖 Pi 的 skill 命令开关，也不复制资源或改变工作目录。
+两个 skill 仍设置 `disable-model-invocation: true`，因此也保留兼容入口：
+
+```text
+/skill:intentcraft ...
+/skill:intentcraft-review ...
+```
+
+兼容入口在支持该字段的 Pi 中不进入模型自动发现的 skill 列表；若关闭了
+skill 命令，使用上面的 plugin 命令即可。
+
+短命令目前只转发文本，不保留同次消息的图片附件。带图请求请开启 skill 命令并
+直接使用 `/skill:intentcraft` 或 `/skill:intentcraft-review`；不要通过短命令提交图片。
 
 主文件还要求用户点名才启用：普通“帮我开发”“写个计划”不会自动启动它们。
 显式启动后的同一主题可以自然继续；完成、取消或切换主题后不常驻生效。
@@ -95,12 +111,16 @@ npm test
 npm pack --dry-run --json
 # 可选：本地已安装 Pi 和 Python 3 时验证实际加载/手动触发
 python3 tests/check_pi.py
+# 关闭 skill 命令且不注册两个目标 skill，只通过 plugin 触发
+python3 tests/check_pi.py --plugin-only
 ```
 
 检查使用 Node.js 20+ 标准库，无运行依赖。测试检查目录、手动触发字段、链接、
 关键规则标记与打包白名单，不证明模型必然遵守规则。
-可选 Pi 检查使用隔离配置与本地假模型，验证自动发现隐藏、阳性对照与两个手动
-命令的展开；不使用用户凭据、不修改全局配置、不请求外部模型。
+可选 Pi 检查使用隔离配置与本地假模型，验证自动发现隐藏、阳性对照、手动命令
+展开、绝对位置和相对引用基准，以及短命令空参数与 plugin-only 模式。
+它检查实际模型请求，不证明模型会正确读取 reference；不使用用户凭据、不修改
+全局配置、不请求外部模型。
 行为测试输入和判据见 [tests/scenarios.md](tests/scenarios.md)；
 实际执行记录见 [docs/validation.md](docs/validation.md)。
 

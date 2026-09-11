@@ -10,11 +10,15 @@
   },
   "homepage": "https://github.com/chocotan/intentcraft#readme",
   "keywords": ["pi-package", "agent-skills", "requirements", "planning"],
-  "files": ["skills/", "tests/", "docs/", "README.md", "LICENSE", "ATTRIBUTION.md"],
+  "files": ["extensions/", "skills/", "tests/", "docs/", "README.md", "LICENSE", "ATTRIBUTION.md"],
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
   "scripts": {
     "test": "node tests/check.mjs"
   },
   "pi": {
+    "extensions": ["./extensions"],
     "skills": ["./skills/intentcraft", "./skills/intentcraft-review"]
   }
 }

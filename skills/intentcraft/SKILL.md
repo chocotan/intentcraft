@@ -3,7 +3,7 @@ name: intentcraft
 description: "仅由用户显式调用。围绕一个主题持续完成证据研究、方案讨论、需求收敛与实施规划；可只做其中一项，不自动接管普通开发任务。"
 disable-model-invocation: true
 license: MIT
-compatibility: "主要面向支持手动 skill 命令的 Pi；其他宿主须确认禁用自动调用能力。按需使用文件、搜索、提问和浏览器工具，无固定工具或运行依赖。"
+compatibility: "主要面向 Pi；安装本包 plugin 后可用 /intentcraft，直接加载本目录内容。其他宿主按手动 skill 规范加载，并确认禁用自动调用能力。按需使用文件、搜索、提问和浏览器工具，无固定工具或运行依赖。"
 ---
 
 # Intentcraft
@@ -76,7 +76,7 @@ agent 数代替判断。一行权限、付款、迁移、删除或公开契约�
 
 | 触发条件 | 读取 |
 |---|---|
-| 外部/竞品能力判断、机制借鉴、重要事实核实 | [研究与证据](references/research.md) |
+| 需求调研涉及同类商业项目、同类开源项目、可直接复用的开源库，或其他外部能力判断/机制借鉴/重要事实核实 | [研究与证据](references/research.md) |
 | 发散方向、质询假设、比较选择、用户不熟悉领域 | [协作讨论](references/discussion.md) |
 | 固化用户行为、范围、业务规则、验收；准备进入规划 | [需求](references/requirements.md) |
 | 技术路线、模块边界、工作拆分、依赖和验证方案 | [计划](references/planning.md) |
