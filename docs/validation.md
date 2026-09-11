@@ -18,7 +18,7 @@
 ic-research → ic-prepare → ic-design-review → ic-do → ic-code-review
 ```
 
-各入口不自动互调。随包资源相对 skill 目录解析；业务项目的 `docs/...` 持久产出相对目标业务项目根目录，默认是调用时工作目录，不写入 skill 安装目录。持久产出按主产出和阶段归档：
+各入口不自动互调。随包资源相对 skill 目录解析；业务项目的 `docs/...` 持久产出相对目标业务项目根目录，默认是调用时工作目录，不写入 skill 安装目录。是否落盘由 Agent 按产出价值判断：实质、可复用、可交接的研究、准备、审查和执行结果默认落盘，短答或用户明确禁止写文件时只回复；用户补充或新证据出现时更新原文件对应章节，不机械追加。持久产出按主产出和阶段归档：
 
 ```text
 docs/ic-research/YYYY-MM-DD-<topic>.md
@@ -34,14 +34,14 @@ docs/ic-code-review/YYYY-MM-DD-<topic>.md
 
 以下结果对应本次五入口和日期契约重构：
 
-- `npm test`：通过；5 个手动 skill、严格日期产出路径契约、40 个场景定义、19 个分发文件。测试还要求 `ic-do` 记录版本/工作区快照，`ic-code-review` 核对执行证据与版本并允许仅更新自身审查报告。
+- `npm test`：通过；5 个手动 skill、严格日期产出路径契约、自适应落盘契约、40 个场景定义、19 个分发文件。测试还要求 `ic-do` 记录版本/工作区快照，`ic-code-review` 核对执行证据与版本并允许仅更新自身审查报告。
 - 日期产出路径负向检查：在隔离副本中移除 `YYYY-MM-DD-<topic>.md` 后，`npm test` 按预期失败。
 - `npm pack --dry-run --json --ignore-scripts`：通过；静态白名单一致。
 - `git diff --check`：通过。
 - `python3 tests/check_pi.py`：Pi 0.84.4 通过，16 个本地假模型请求，验证五个原生入口和五个 plugin 入口。
 - `python3 tests/check_pi.py --plugin-only`：Pi 0.84.4 通过，11 个本地假模型请求，关闭 skill 命令时验证五个 plugin 入口。
 - Pi 官方 `docs/skills.md` 说明 `disable-model-invocation: true` 会将 skill 隐藏出 system prompt，用户仍可用 `/skill:name` 调用；本项目的 Pi 检查也实际验证了五个目标 skill 不在 system prompt、阳性对照仍可见。该结论限定于 Pi 0.84.4，其他 Pi 版本和宿主未验证。
-- S34–S40：覆盖五入口产出、主产出选择、显式交接、测试和不自动串联；尚未进行真实模型评估。
+- S34–S41：覆盖五入口产出、主产出选择、显式交接、自适应落盘、原位更新、测试和不自动串联；尚未进行真实模型评估。
 
 ## 局限
 

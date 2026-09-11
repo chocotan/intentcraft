@@ -69,6 +69,9 @@ assert(manifest.keywords.includes('pi-package'));
 for (const name of names) {
   const main = read(`skills/${name}/SKILL.md`);
   assert(main.includes(`docs/${name}/YYYY-MM-DD-<topic>.md`), `${name}: missing dated output path contract`);
+  assert(main.includes('由 Agent 判断') || main.includes('持久化由 Agent'), `${name}: missing adaptive persistence rule`);
+  assert(main.includes('已落盘：<path>') && main.includes('未落盘：<理由>'), `${name}: missing persistence report`);
+  assert(main.includes('不机械地在结尾追加'), `${name}: missing in-place document update rule`);
   if (name === 'ic-do') {
     assert(main.includes('版本或工作区快照'), `${name}: missing version-bound execution evidence`);
   }
