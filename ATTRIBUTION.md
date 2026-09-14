@@ -14,6 +14,8 @@ reference projects. Its workflow design draws on these projects:
 - [bigpowers](https://github.com/danielvm-git/bigpowers): fact-versus-choice
   questioning, end-to-end slices, and explicit verification expectations.
 
+- [Matt Pocock skills](https://github.com/mattpocock/skills/tree/3cca18b368ae95cdbdebbff572ccafa662551015/skills/engineering)：借鉴行动导向、明确完成条件、按依赖持续讨论、及时维护文档和问题驱动的原型；保留 Intentcraft 自身的授权与阶段边界，未复制上游模板或脚本。
+
 The projects' names and trademarks remain their owners'. These links do not
 imply affiliation or endorsement. No upstream code, templates, or repository
 checkouts are distributed here. Direct reuse in future contributions must
