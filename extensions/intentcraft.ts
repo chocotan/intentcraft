@@ -6,7 +6,6 @@ import { fileURLToPath } from "node:url";
 const SKILLS = {
 	"ic-research": new URL("../skills/ic-research/SKILL.md", import.meta.url),
 	"ic-prepare": new URL("../skills/ic-prepare/SKILL.md", import.meta.url),
-	"ic-design-review": new URL("../skills/ic-design-review/SKILL.md", import.meta.url),
 	"ic-do": new URL("../skills/ic-do/SKILL.md", import.meta.url),
 	"ic-code-review": new URL("../skills/ic-code-review/SKILL.md", import.meta.url),
 } as const;

@@ -16,6 +16,6 @@
   },
   "pi": {
     "extensions": ["./extensions"],
-    "skills": ["./skills/ic-research", "./skills/ic-prepare", "./skills/ic-design-review", "./skills/ic-do", "./skills/ic-code-review"]
+    "skills": ["./skills/ic-research", "./skills/ic-prepare", "./skills/ic-do", "./skills/ic-code-review"]
   }
 }
